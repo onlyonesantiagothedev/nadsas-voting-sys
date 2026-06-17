@@ -1,3 +1,5 @@
+# Create .gitignore
+cat > .gitignore << 'EOF'
 # Binaries
 *.exe
 *.dll
@@ -37,3 +39,4 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+EOF
