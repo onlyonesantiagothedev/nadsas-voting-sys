@@ -1,0 +1,25 @@
+# .air.toml - Live reload config for nadsas_voting_sys
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/main.exe ."
+  bin = "./tmp/main.exe"
+  delay = 500
+  exclude_dir = ["tmp", "node_modules", "static"]
+  include_ext = ["go", "html", "sql"]
+  kill_delay = "0s"
+  send_interrupt = false
+  stop_on_error = true
+
+[log]
+  time = false
+
+[color]
+  main = "magenta"
+  watcher = "cyan"
+  build = "yellow"
+  runner = "green"
+
+[misc]
+  clean_on_exit = true

@@ -1,0 +1,121 @@
+{{template "base.html" .}}
+
+{{define "content"}}
+<div class="fade-in">
+    <div class="mb-8 flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-5">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{.Election.Title}}</h1>
+            <p class="mt-1 text-sm text-gray-500">Manage election details and candidates.</p>
+        </div>
+        <div class="flex items-center gap-4">
+            <form action="/admin/election/{{.Election.ID}}/toggle" method="POST" class="inline">
+                {{.csrfField}}
+                {{if .Election.IsActive}}
+                <button type="submit" class="bg-red-100 text-red-700 hover:bg-red-200 px-4 py-2 rounded-md font-medium text-sm transition-colors border border-red-200">Deactivate Election</button>
+                {{else}}
+                <button type="submit" class="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-md font-medium text-sm transition-colors border border-green-200">Activate Election</button>
+                {{end}}
+            </form>
+            <a href="/admin" class="text-sm text-primary hover:underline">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Add Candidate Form -->
+        <div class="lg:col-span-1">
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 p-6 sticky top-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Add Candidate</h2>
+                <form action="/admin/election/{{.Election.ID}}/candidates" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    {{.csrfField}}
+                    <div>
+                        <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                        <input type="text" name="name" id="name" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border">
+                    </div>
+                    <div>
+                        <label for="position" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Position</label>
+                        <input type="text" name="position" id="position" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border">
+                    </div>
+                    <div>
+                        <label for="photo" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Candidate Photo (Optional)</label>
+                        <input type="file" name="photo" id="photo" accept="image/*" class="mt-1 block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white hover:file:bg-blue-900">
+                    </div>
+                    <div>
+                        <label for="manifesto" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Manifesto</label>
+                        <textarea name="manifesto" id="manifesto" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-accent text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors font-medium">Add Candidate</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Candidate List -->
+        <div class="lg:col-span-2">
+            <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Current Candidates</h2>
+            <div class="space-y-4">
+                {{$csrf := .csrfField}}
+                {{$electionID := .Election.ID}}
+                {{range .Candidates}}
+                <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between" id="candidate-{{.ID}}">
+                    <div class="flex items-center gap-4">
+                        {{if .PhotoURL}}
+                        <img src="{{.PhotoURL}}" alt="{{.Name}}" class="h-12 w-12 rounded-full object-cover">
+                        {{else}}
+                        <div class="h-12 w-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center font-bold text-gray-500">
+                            {{printf "%.1s" .Name}}
+                        </div>
+                        {{end}}
+                        <div>
+                            <h4 class="font-bold text-gray-900 dark:text-white">{{.Name}}</h4>
+                            <p class="text-sm text-accent">{{.Position}}</p>
+                            <p class="text-xs text-gray-500 mt-1">{{.VoteCount}} Votes</p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <form action="/admin/election/{{$electionID}}/candidates/{{.ID}}/delete" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this candidate?');">
+                            {{$csrf}}
+                            <button type="submit" class="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium px-3 py-1 bg-red-50 dark:bg-red-900/20 rounded transition-colors">Delete</button>
+                        </form>
+                    </div>
+                </div>
+                {{else}}
+                <div class="text-center py-8 text-gray-500 bg-white dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
+                    No candidates added yet.
+                </div>
+                {{end}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="mt-16 border-t border-gray-200 dark:border-gray-700 pt-8">
+        <h3 class="text-xl font-bold text-red-600 mb-4">Danger Zone</h3>
+        <div class="space-y-4">
+            <!-- Reset Votes -->
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h4 class="font-bold text-gray-900 dark:text-white">Reset All Votes</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Wipes all votes for this election and resets all candidate vote counts to 0. Use this to fix test data or restart voting.</p>
+                </div>
+                <form action="/admin/election/{{.Election.ID}}/reset-votes" method="POST" onsubmit="return confirm('This will permanently delete ALL votes for this election. Are you sure?');" class="shrink-0">
+                    {{.csrfField}}
+                    <button type="submit" class="bg-white border border-red-300 text-red-600 hover:bg-red-50 px-4 py-2 rounded-md transition-colors text-sm font-semibold dark:bg-gray-800 dark:border-red-800 dark:hover:bg-gray-700 whitespace-nowrap">Reset Votes</button>
+                </form>
+            </div>
+
+            <!-- Delete Election -->
+            <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h4 class="font-bold text-gray-900 dark:text-white">Delete this Election</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Permanently deletes this election, all its candidates, and all vote records. This cannot be undone.</p>
+                </div>
+                <form action="/admin/election/{{.Election.ID}}/delete" method="POST" onsubmit="return confirm('Permanently delete this entire election? This cannot be undone.');" class="shrink-0">
+                    {{.csrfField}}
+                    <button type="submit" class="bg-red-600 text-white hover:bg-red-700 px-4 py-2 rounded-md transition-colors text-sm font-semibold whitespace-nowrap">Delete Election</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
+

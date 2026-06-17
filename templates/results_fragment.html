@@ -1,0 +1,61 @@
+<div hx-get="/results/{{.Election.ID}}/fragment" hx-trigger="every 10s" hx-swap="outerHTML" class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div class="mb-6 flex justify-between items-center text-sm">
+        <span class="font-medium text-gray-500 dark:text-gray-400">Total Votes Cast</span>
+        <span class="font-bold text-2xl text-gray-900 dark:text-white">{{.Election.TotalVotes}}</span>
+    </div>
+
+    {{if .IsAdmin}}
+    <div class="mb-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-md">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    <strong>Admin View:</strong> You are seeing live results because you are logged in as an administrator. Regular voters will not see these results until the election ends.
+                </p>
+            </div>
+        </div>
+    </div>
+    {{end}}
+
+    {{if .ShowResults}}
+    <div class="space-y-6">
+        {{range .Candidates}}
+        <div>
+            <div class="flex justify-between items-end mb-2">
+                <div class="flex items-center gap-3">
+                    {{if .PhotoURL}}
+                    <img src="{{.PhotoURL}}" alt="{{.Name}}" class="h-8 w-8 rounded-full object-cover">
+                    {{else}}
+                    <div class="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500">
+                        {{printf "%.1s" .Name}}
+                    </div>
+                    {{end}}
+                    <span class="font-bold text-gray-800 dark:text-gray-200">{{.Name}}</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-lg font-bold text-gray-900 dark:text-white">{{.VoteCount}}</span>
+                    <span class="text-sm text-gray-500 ml-1">({{(printf "%.1f" .VotePercentage)}}%)</span>
+                </div>
+            </div>
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                <div class="bg-accent h-3 rounded-full transition-width duration-500 ease-in-out" style="width: {{.VotePercentage}}%"></div>
+            </div>
+        </div>
+        {{end}}
+    </div>
+    {{else}}
+    <div class="py-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Results are Hidden</h3>
+        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Results will be revealed once the administrator officially closes this election.
+        </p>
+    </div>
+    {{end}}
+</div>
