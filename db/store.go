@@ -18,7 +18,7 @@ func HashVoter(identifier, pepper string) string {
 }
 
 func GetActiveElections() ([]models.Election, error) {
-	rows, err := DB.Query("SELECT id, group_id, title, description, start_time, end_time, is_active FROM elections WHERE is_active = 1 ORDER BY created_at DESC")
+	rows, err := DB.Query("SELECT id, group_id, title, description, start_time, end_time, is_active FROM elections ORDER BY created_at DESC")
 	if err != nil {
 		return nil, err
 	}
@@ -38,18 +38,19 @@ func GetActiveElections() ([]models.Election, error) {
 		DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
 		DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
 		
-		e.Status = "Closed"
-		if e.IsActive {
-			if end.Valid && time.Now().After(end.Time) {
-				e.Status = "Ended"
-			} else if start.Valid && time.Now().Before(start.Time) {
-				e.Status = "Upcoming"
-			} else {
-				e.Status = "Active"
-			}
+		if end.Valid && !end.Time.IsZero() && time.Now().After(end.Time) {
+			e.Status = "Ended"
+		} else if start.Valid && !start.Time.IsZero() && time.Now().Before(start.Time) {
+			e.Status = "Upcoming"
+		} else if e.IsActive {
+			e.Status = "Active"
+		} else {
+			e.Status = "Closed"
 		}
 		
-		elections = append(elections, e)
+		if e.Status != "Closed" {
+			elections = append(elections, e)
+		}
 	}
 	return elections, nil
 }
@@ -182,15 +183,14 @@ func GetAllElectionsAdmin() ([]models.Election, error) {
 		if end.Valid { e.EndTime = end.Time }
 		DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
 		DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
-		e.Status = "Closed"
-		if e.IsActive {
-			if end.Valid && time.Now().After(end.Time) {
-				e.Status = "Ended"
-			} else if start.Valid && time.Now().Before(start.Time) {
-				e.Status = "Upcoming"
-			} else {
-				e.Status = "Active"
-			}
+		if end.Valid && !end.Time.IsZero() && time.Now().After(end.Time) {
+			e.Status = "Ended"
+		} else if start.Valid && !start.Time.IsZero() && time.Now().Before(start.Time) {
+			e.Status = "Upcoming"
+		} else if e.IsActive {
+			e.Status = "Active"
+		} else {
+			e.Status = "Closed"
 		}
 		elections = append(elections, e)
 	}
@@ -280,10 +280,15 @@ func GetAllGroups() ([]models.ElectionGroup, error) {
 				if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 				if start.Valid { e.StartTime = start.Time }
 				if end.Valid { e.EndTime = end.Time }
-				DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
-				DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
-				e.Status = "Closed"
-				if e.IsActive { e.Status = "Active" }
+				if end.Valid && !end.Time.IsZero() && time.Now().After(end.Time) {
+					e.Status = "Ended"
+				} else if start.Valid && !start.Time.IsZero() && time.Now().Before(start.Time) {
+					e.Status = "Upcoming"
+				} else if e.IsActive {
+					e.Status = "Active"
+				} else {
+					e.Status = "Closed"
+				}
 				g.Elections = append(g.Elections, e)
 			}
 			erows.Close()
@@ -310,10 +315,15 @@ func GetGroup(id int) (models.ElectionGroup, error) {
 			if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 			if start.Valid { e.StartTime = start.Time }
 			if end.Valid { e.EndTime = end.Time }
-			DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
-			DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
-			e.Status = "Closed"
-			if e.IsActive { e.Status = "Active" }
+			if end.Valid && !end.Time.IsZero() && time.Now().After(end.Time) {
+				e.Status = "Ended"
+			} else if start.Valid && !start.Time.IsZero() && time.Now().Before(start.Time) {
+				e.Status = "Upcoming"
+			} else if e.IsActive {
+				e.Status = "Active"
+			} else {
+				e.Status = "Closed"
+			}
 			g.Elections = append(g.Elections, e)
 		}
 		erows.Close()
