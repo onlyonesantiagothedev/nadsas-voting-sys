@@ -56,14 +56,16 @@ func VotingPageHandler(w http.ResponseWriter, r *http.Request) {
 		hasVoted = true
 	}
 
-	hasEnded := false
-	if !election.IsActive || (!election.EndTime.IsZero() && time.Now().After(election.EndTime)) {
-		hasEnded = true
-	}
-
 	isUpcoming := false
 	if !election.StartTime.IsZero() && time.Now().Before(election.StartTime) {
 		isUpcoming = true
+	}
+
+	hasEnded := false
+	if !isUpcoming {
+		if !election.IsActive || (!election.EndTime.IsZero() && time.Now().After(election.EndTime)) {
+			hasEnded = true
+		}
 	}
 
 	data := map[string]interface{}{
@@ -94,12 +96,12 @@ func SubmitVoteHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "<div class='mt-4 p-3 bg-red-100 text-red-700 rounded'>Error: Election not found.</div>")
 		return
 	}
-	if !election.IsActive || (!election.EndTime.IsZero() && time.Now().After(election.EndTime)) {
-		fmt.Fprintf(w, "<div class='mt-4 p-3 bg-red-100 text-red-700 rounded'>Error: Voting for this election has ended.</div>")
-		return
-	}
 	if !election.StartTime.IsZero() && time.Now().Before(election.StartTime) {
 		fmt.Fprintf(w, "<div class='mt-4 p-3 bg-red-100 text-red-700 rounded'>Error: Voting for this election has not started yet.</div>")
+		return
+	}
+	if !election.IsActive || (!election.EndTime.IsZero() && time.Now().After(election.EndTime)) {
+		fmt.Fprintf(w, "<div class='mt-4 p-3 bg-red-100 text-red-700 rounded'>Error: Voting for this election has ended.</div>")
 		return
 	}
 
