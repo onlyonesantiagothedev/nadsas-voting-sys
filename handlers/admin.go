@@ -113,13 +113,15 @@ func AdminNewElectionPostHandler(w http.ResponseWriter, r *http.Request) {
 	if startStr != "" {
 		t, err := time.ParseInLocation(layout, startStr, time.Local)
 		if err == nil {
-			start = &t
+			tUTC := t.UTC()
+			start = &tUTC
 		}
 	}
 	if endStr != "" {
 		t, err := time.ParseInLocation(layout, endStr, time.Local)
 		if err == nil {
-			end = &t
+			tUTC := t.UTC()
+			end = &tUTC
 		}
 	}
 
