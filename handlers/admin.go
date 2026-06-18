@@ -321,3 +321,31 @@ func AdminResetVotesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, fmt.Sprintf("/admin/election/%d", id), http.StatusFound)
 }
+
+func AdminPrintElectionHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, _ := strconv.Atoi(idStr)
+
+	election, err := db.GetElection(id)
+	if err != nil {
+		http.Error(w, "Election not found", http.StatusNotFound)
+		return
+	}
+
+	candidates, _ := db.GetCandidatesForElection(id)
+
+	for i, c := range candidates {
+		if election.TotalVotes > 0 {
+			candidates[i].VotePercentage = float64(c.VoteCount) / float64(election.TotalVotes) * 100
+		} else {
+			candidates[i].VotePercentage = 0
+		}
+	}
+
+	data := map[string]interface{}{
+		"Election":   election,
+		"Candidates": candidates,
+	}
+
+	renderTemplate(w, "admin_print.html", data)
+}

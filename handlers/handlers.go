@@ -22,25 +22,39 @@ func renderTemplate(w http.ResponseWriter, name string, data map[string]interfac
 		http.Error(w, "Template not found", http.StatusInternalServerError)
 		return
 	}
+	if name == "results_fragment.html" || name == "admin_print.html" {
+		err := t.ExecuteTemplate(w, name, data)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
 	err := t.ExecuteTemplate(w, "base.html", data)
-	if err != nil && name == "results_fragment.html" {
-		t.ExecuteTemplate(w, "results_fragment.html", data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 // SetupRouter initializes and returns the Chi router
 func SetupRouter() *chi.Mux {
+	funcMap := template.FuncMap{
+		"add1": func(x int) int {
+			return x + 1
+		},
+	}
+
 	// Parse templates separately so they don't overwrite the "content" block
-	tmpls["index.html"] = template.Must(template.ParseFiles("templates/base.html", "templates/index.html"))
-	tmpls["voting.html"] = template.Must(template.ParseFiles("templates/base.html", "templates/voting.html"))
-	tmpls["results.html"] = template.Must(template.ParseFiles("templates/base.html", "templates/results.html"))
-	tmpls["results_fragment.html"] = template.Must(template.ParseFiles("templates/results_fragment.html"))
-	tmpls["admin_login.html"] = template.Must(template.ParseFiles("templates/base.html", "templates/admin_login.html"))
-	tmpls["admin_dashboard.html"] = template.Must(template.ParseFiles("templates/base.html", "templates/admin_dashboard.html"))
-	tmpls["admin_new_election.html"] = template.Must(template.ParseFiles("templates/base.html", "templates/admin_new_election.html"))
-	tmpls["admin_election.html"] = template.Must(template.ParseFiles("templates/base.html", "templates/admin_election.html"))
-	tmpls["admin_new_group.html"] = template.Must(template.ParseFiles("templates/base.html", "templates/admin_new_group.html"))
-	tmpls["admin_group.html"] = template.Must(template.ParseFiles("templates/base.html", "templates/admin_group.html"))
+	tmpls["index.html"] = template.Must(template.New("index.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/index.html"))
+	tmpls["voting.html"] = template.Must(template.New("voting.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/voting.html"))
+	tmpls["results.html"] = template.Must(template.New("results.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/results.html"))
+	tmpls["results_fragment.html"] = template.Must(template.New("results_fragment.html").Funcs(funcMap).ParseFiles("templates/results_fragment.html"))
+	tmpls["admin_login.html"] = template.Must(template.New("admin_login.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/admin_login.html"))
+	tmpls["admin_dashboard.html"] = template.Must(template.New("admin_dashboard.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/admin_dashboard.html"))
+	tmpls["admin_new_election.html"] = template.Must(template.New("admin_new_election.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/admin_new_election.html"))
+	tmpls["admin_election.html"] = template.Must(template.New("admin_election.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/admin_election.html"))
+	tmpls["admin_new_group.html"] = template.Must(template.New("admin_new_group.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/admin_new_group.html"))
+	tmpls["admin_group.html"] = template.Must(template.New("admin_group.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/admin_group.html"))
+	tmpls["admin_print.html"] = template.Must(template.New("admin_print.html").Funcs(funcMap).ParseFiles("templates/admin_print.html"))
 
 	// Setup session store
 	secret := os.Getenv("SESSION_SECRET")
@@ -101,6 +115,7 @@ func SetupRouter() *chi.Mux {
 			r.Get("/election/new", AdminNewElectionHandler)
 			r.Post("/election/new", AdminNewElectionPostHandler)
 			r.Get("/election/{id}", AdminManageElectionHandler)
+			r.Get("/election/{id}/print", AdminPrintElectionHandler)
 			r.Post("/election/{id}/toggle", AdminToggleElectionHandler)
 			r.Post("/election/{id}/delete", AdminDeleteElectionHandler)
 			r.Post("/election/{id}/reset-votes", AdminResetVotesHandler)

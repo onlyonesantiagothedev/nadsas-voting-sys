@@ -67,7 +67,19 @@ func GetElection(id int) (models.Election, error) {
 	if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 	if start.Valid { e.StartTime = start.Time.Local() }
 	if end.Valid { e.EndTime = end.Time.Local() }
+	DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", id).Scan(&e.CandidateCount)
 	DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", id).Scan(&e.TotalVotes)
+
+	if end.Valid && !end.Time.IsZero() && time.Now().After(end.Time) {
+		e.Status = "Ended"
+	} else if start.Valid && !start.Time.IsZero() && time.Now().Before(start.Time) {
+		e.Status = "Upcoming"
+	} else if e.IsActive {
+		e.Status = "Active"
+	} else {
+		e.Status = "Closed"
+	}
+
 	return e, nil
 }
 
@@ -280,6 +292,8 @@ func GetAllGroups() ([]models.ElectionGroup, error) {
 				if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 				if start.Valid { e.StartTime = start.Time.Local() }
 				if end.Valid { e.EndTime = end.Time.Local() }
+				DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
+				DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
 				if end.Valid && !end.Time.IsZero() && time.Now().After(end.Time) {
 					e.Status = "Ended"
 				} else if start.Valid && !start.Time.IsZero() && time.Now().Before(start.Time) {
@@ -315,6 +329,8 @@ func GetGroup(id int) (models.ElectionGroup, error) {
 			if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 			if start.Valid { e.StartTime = start.Time.Local() }
 			if end.Valid { e.EndTime = end.Time.Local() }
+			DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
+			DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
 			if end.Valid && !end.Time.IsZero() && time.Now().After(end.Time) {
 				e.Status = "Ended"
 			} else if start.Valid && !start.Time.IsZero() && time.Now().Before(start.Time) {

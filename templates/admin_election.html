@@ -16,6 +16,12 @@
                 <button type="submit" class="bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-md font-medium text-sm transition-colors border border-green-200">Activate Election</button>
                 {{end}}
             </form>
+            <a href="/admin/election/{{.Election.ID}}/print" target="_blank" class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 px-4 py-2 rounded-md font-medium text-sm transition-colors border border-indigo-200 inline-flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                {{if eq .Election.Status "Ended"}}Print Results{{else}}Print Election Info{{end}}
+            </a>
             <a href="/admin" class="text-sm text-primary hover:underline">Back to Dashboard</a>
         </div>
     </div>
