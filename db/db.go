@@ -6,14 +6,20 @@ import (
 	"os"
 
 	"golang.org/x/crypto/bcrypt"
-	_ "modernc.org/sqlite"
+	_ "github.com/lib/pq"
 )
 
 var DB *sql.DB
 
-func InitDB(dataSourceName string) {
+func InitDB(defaultConn string) {
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		// Use the Supabase connection string provided
+		connStr = "postgresql://postgres:thebigcompan12@db.defguvuagvlfxhduryvd.supabase.co:5432/postgres"
+	}
+
 	var err error
-	DB, err = sql.Open("sqlite", dataSourceName)
+	DB, err = sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
@@ -22,14 +28,8 @@ func InitDB(dataSourceName string) {
 		log.Fatalf("Failed to ping database: %v", err)
 	}
 
-	// Enable foreign keys
-	_, err = DB.Exec("PRAGMA foreign_keys = ON")
-	if err != nil {
-		log.Fatalf("Failed to enable foreign keys: %v", err)
-	}
-
-	// Migration: Add duration_minutes to elections if not exists
-	_, _ = DB.Exec("ALTER TABLE elections ADD COLUMN duration_minutes INTEGER DEFAULT 0")
+	// PostgreSQL supports ADD COLUMN IF NOT EXISTS
+	_, _ = DB.Exec("ALTER TABLE elections ADD COLUMN IF NOT EXISTS duration_minutes INTEGER DEFAULT 0")
 
 	createTables()
 	seedAdmins()
@@ -63,7 +63,7 @@ func seedAdmins() {
 
 func seedAdmin(email, password string) {
 	var count int
-	err := DB.QueryRow("SELECT COUNT(*) FROM admins WHERE email = ?", email).Scan(&count)
+	err := DB.QueryRow("SELECT COUNT(*) FROM admins WHERE email = $1", email).Scan(&count)
 	if err != nil {
 		log.Fatalf("Failed to check admin %s: %v", email, err)
 	}
@@ -74,7 +74,7 @@ func seedAdmin(email, password string) {
 			log.Fatalf("Failed to hash password for %s: %v", email, err)
 		}
 
-		_, err = DB.Exec("INSERT INTO admins (email, password_hash) VALUES (?, ?)", email, string(hash))
+		_, err = DB.Exec("INSERT INTO admins (email, password_hash) VALUES ($1, $2)", email, string(hash))
 		if err != nil {
 			log.Fatalf("Failed to seed admin %s: %v", email, err)
 		}

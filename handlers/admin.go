@@ -35,7 +35,7 @@ func AdminLoginPostHandler(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 
 	var hash string
-	err = db.DB.QueryRow("SELECT password_hash FROM admins WHERE email = ?", email).Scan(&hash)
+	err = db.DB.QueryRow("SELECT password_hash FROM admins WHERE email = $1", email).Scan(&hash)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			data := map[string]interface{}{"Error": "Invalid credentials", csrf.TemplateTag: csrf.TemplateField(r)}
@@ -53,7 +53,7 @@ func AdminLoginPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update last login
-	db.DB.Exec("UPDATE admins SET last_login = ? WHERE email = ?", time.Now(), email)
+	db.DB.Exec("UPDATE admins SET last_login = $1 WHERE email = $2", time.Now(), email)
 
 	// Set session
 	session, _ := store.Get(r, "admin-session")

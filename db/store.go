@@ -35,8 +35,8 @@ func GetActiveElections() ([]models.Election, error) {
 		if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 		if start.Valid { e.StartTime = start.Time.Local() }
 		if end.Valid { e.EndTime = end.Time.Local() }
-		DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
-		DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
+		DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", e.ID).Scan(&e.CandidateCount)
+		DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", e.ID).Scan(&e.TotalVotes)
 		
 		if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 			e.Status = "Ended"
@@ -59,7 +59,7 @@ func GetElection(id int) (models.Election, error) {
 	var e models.Election
 	var start, end sql.NullTime
 	var gid sql.NullInt64
-	err := DB.QueryRow("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections WHERE id = ?", id).
+	err := DB.QueryRow("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections WHERE id = $1", id).
 		Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive)
 	if err != nil {
 		return e, err
@@ -67,8 +67,8 @@ func GetElection(id int) (models.Election, error) {
 	if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 	if start.Valid { e.StartTime = start.Time.Local() }
 	if end.Valid { e.EndTime = end.Time.Local() }
-	DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", id).Scan(&e.CandidateCount)
-	DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", id).Scan(&e.TotalVotes)
+	DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", id).Scan(&e.CandidateCount)
+	DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", id).Scan(&e.TotalVotes)
 
 	if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 		e.Status = "Ended"
@@ -84,7 +84,7 @@ func GetElection(id int) (models.Election, error) {
 }
 
 func GetCandidatesForElection(electionID int) ([]models.Candidate, error) {
-	rows, err := DB.Query("SELECT id, election_id, name, position, manifesto, photo_url, vote_count FROM candidates WHERE election_id = ? ORDER BY vote_count DESC", electionID)
+	rows, err := DB.Query("SELECT id, election_id, name, position, manifesto, photo_url, vote_count FROM candidates WHERE election_id = $1 ORDER BY vote_count DESC", electionID)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func RecordVotes(electionID int, candidateIDs []int, voterIdentifier, pepper str
 	// Check if active and within start/end time
 	var isActive bool
 	var start, end sql.NullTime
-	err = tx.QueryRow("SELECT is_active, start_time, end_time FROM elections WHERE id = ?", electionID).Scan(&isActive, &start, &end)
+	err = tx.QueryRow("SELECT is_active, start_time, end_time FROM elections WHERE id = $1", electionID).Scan(&isActive, &start, &end)
 	if err != nil {
 		return err
 	}
@@ -134,7 +134,7 @@ func RecordVotes(electionID int, candidateIDs []int, voterIdentifier, pepper str
 
 	// Check if voter has ANY votes in this election
 	var count int
-	err = tx.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ? AND voter_hash = ?", electionID, voterHash).Scan(&count)
+	err = tx.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1 AND voter_hash = $2", electionID, voterHash).Scan(&count)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func RecordVotes(electionID int, candidateIDs []int, voterIdentifier, pepper str
 
 	// Global 24-hour cooldown check for this voter across all elections
 	var lastVoted sql.NullTime
-	err = tx.QueryRow("SELECT MAX(voted_at) FROM votes WHERE voter_hash = ?", voterHash).Scan(&lastVoted)
+	err = tx.QueryRow("SELECT MAX(voted_at) FROM votes WHERE voter_hash = $1", voterHash).Scan(&lastVoted)
 	if err == nil && lastVoted.Valid {
 		if time.Since(lastVoted.Time) < 24*time.Hour {
 			return errors.New("this Voter ID has already been used in the last 24 hours and is currently locked")
@@ -154,19 +154,19 @@ func RecordVotes(electionID int, candidateIDs []int, voterIdentifier, pepper str
 	for _, cid := range candidateIDs {
 		// Get position of candidate
 		var position string
-		err = tx.QueryRow("SELECT position FROM candidates WHERE id = ? AND election_id = ?", cid, electionID).Scan(&position)
+		err = tx.QueryRow("SELECT position FROM candidates WHERE id = $1 AND election_id = $2", cid, electionID).Scan(&position)
 		if err != nil {
 			return fmt.Errorf("invalid candidate: %v", err)
 		}
 
 		// Insert vote
-		_, err = tx.Exec("INSERT INTO votes (election_id, candidate_id, position, voter_hash) VALUES (?, ?, ?, ?)", electionID, cid, position, voterHash)
+		_, err = tx.Exec("INSERT INTO votes (election_id, candidate_id, position, voter_hash) VALUES ($1, $2, $3, $4)", electionID, cid, position, voterHash)
 		if err != nil {
 			return fmt.Errorf("database error recording vote: %v", err)
 		}
 
 		// Increment vote count
-		_, err = tx.Exec("UPDATE candidates SET vote_count = vote_count + 1 WHERE id = ?", cid)
+		_, err = tx.Exec("UPDATE candidates SET vote_count = vote_count + 1 WHERE id = $1", cid)
 		if err != nil {
 			return err
 		}
@@ -193,8 +193,8 @@ func GetAllElectionsAdmin() ([]models.Election, error) {
 		if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 		if start.Valid { e.StartTime = start.Time.Local() }
 		if end.Valid { e.EndTime = end.Time.Local() }
-		DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
-		DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
+		DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", e.ID).Scan(&e.CandidateCount)
+		DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", e.ID).Scan(&e.TotalVotes)
 		if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 			e.Status = "Ended"
 		} else if !e.StartTime.IsZero() && time.Now().Before(e.StartTime) {
@@ -210,36 +210,36 @@ func GetAllElectionsAdmin() ([]models.Election, error) {
 }
 
 func CreateElection(title, description string, groupID *int, durationMinutes int) (int, error) {
-	res, err := DB.Exec("INSERT INTO elections (group_id, title, description, duration_minutes, is_active) VALUES (?, ?, ?, ?, 0)", groupID, title, description, durationMinutes)
+	var id int
+	err := DB.QueryRow("INSERT INTO elections (group_id, title, description, duration_minutes, is_active) VALUES ($1, $2, $3, $4, FALSE) RETURNING id", groupID, title, description, durationMinutes).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
-	id, _ := res.LastInsertId()
-	return int(id), nil
+	return id, nil
 }
 
 func ToggleElectionStatus(id int) error {
 	var isActive bool
 	var durationMinutes int
-	err := DB.QueryRow("SELECT is_active, duration_minutes FROM elections WHERE id = ?", id).Scan(&isActive, &durationMinutes)
+	err := DB.QueryRow("SELECT is_active, duration_minutes FROM elections WHERE id = $1", id).Scan(&isActive, &durationMinutes)
 	if err != nil {
 		return err
 	}
 
 	if isActive {
-		// Deactivate: set is_active=0, end_time to now (ends immediately)
-		_, err = DB.Exec("UPDATE elections SET is_active = 0, end_time = ? WHERE id = ?", time.Now().UTC(), id)
+		// Deactivate: set is_active=FALSE, end_time to now (ends immediately)
+		_, err = DB.Exec("UPDATE elections SET is_active = FALSE, end_time = $1 WHERE id = $2", time.Now().UTC(), id)
 	} else {
-		// Activate: set is_active=1, start_time=now, end_time=now + duration
+		// Activate: set is_active=TRUE, start_time=now, end_time=now + duration
 		now := time.Now().UTC()
 		end := now.Add(time.Duration(durationMinutes) * time.Minute)
-		_, err = DB.Exec("UPDATE elections SET is_active = 1, start_time = ?, end_time = ? WHERE id = ?", now, end, id)
+		_, err = DB.Exec("UPDATE elections SET is_active = TRUE, start_time = $1, end_time = $2 WHERE id = $3", now, end, id)
 	}
 	return err
 }
 
 func AddCandidate(electionID int, name, position, manifesto, photoURL string) error {
-	_, err := DB.Exec("INSERT INTO candidates (election_id, name, position, manifesto, photo_url) VALUES (?, ?, ?, ?, ?)", electionID, name, position, manifesto, photoURL)
+	_, err := DB.Exec("INSERT INTO candidates (election_id, name, position, manifesto, photo_url) VALUES ($1, $2, $3, $4, $5)", electionID, name, position, manifesto, photoURL)
 	return err
 }
 
@@ -250,11 +250,11 @@ func DeleteCandidate(id int) error {
 	}
 	defer tx.Rollback()
 	// Remove votes for this candidate
-	if _, err = tx.Exec("DELETE FROM votes WHERE candidate_id = ?", id); err != nil {
+	if _, err = tx.Exec("DELETE FROM votes WHERE candidate_id = $1", id); err != nil {
 		return err
 	}
-	// Recalculate vote_count for sibling candidates (not strictly needed but safe)
-	if _, err = tx.Exec("DELETE FROM candidates WHERE id = ?", id); err != nil {
+	// Delete candidate
+	if _, err = tx.Exec("DELETE FROM candidates WHERE id = $1", id); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -266,13 +266,13 @@ func DeleteElection(id int) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.Exec("DELETE FROM votes WHERE election_id = ?", id); err != nil {
+	if _, err = tx.Exec("DELETE FROM votes WHERE election_id = $1", id); err != nil {
 		return err
 	}
-	if _, err = tx.Exec("DELETE FROM candidates WHERE election_id = ?", id); err != nil {
+	if _, err = tx.Exec("DELETE FROM candidates WHERE election_id = $1", id); err != nil {
 		return err
 	}
-	if _, err = tx.Exec("DELETE FROM elections WHERE id = ?", id); err != nil {
+	if _, err = tx.Exec("DELETE FROM elections WHERE id = $1", id); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -294,7 +294,7 @@ func GetAllGroups() ([]models.ElectionGroup, error) {
 			return nil, err
 		}
 		// Load elections inside group
-		erows, _ := DB.Query("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections WHERE group_id = ? ORDER BY created_at ASC", g.ID)
+		erows, _ := DB.Query("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections WHERE group_id = $1 ORDER BY created_at ASC", g.ID)
 		if erows != nil {
 			for erows.Next() {
 				var e models.Election
@@ -304,8 +304,8 @@ func GetAllGroups() ([]models.ElectionGroup, error) {
 				if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 				if start.Valid { e.StartTime = start.Time.Local() }
 				if end.Valid { e.EndTime = end.Time.Local() }
-				DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
-				DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
+				DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", e.ID).Scan(&e.CandidateCount)
+				DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", e.ID).Scan(&e.TotalVotes)
 				if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 					e.Status = "Ended"
 				} else if !e.StartTime.IsZero() && time.Now().Before(e.StartTime) {
@@ -326,12 +326,12 @@ func GetAllGroups() ([]models.ElectionGroup, error) {
 
 func GetGroup(id int) (models.ElectionGroup, error) {
 	var g models.ElectionGroup
-	err := DB.QueryRow("SELECT id, name, description FROM election_groups WHERE id = ?", id).
+	err := DB.QueryRow("SELECT id, name, description FROM election_groups WHERE id = $1", id).
 		Scan(&g.ID, &g.Name, &g.Description)
 	if err != nil {
 		return g, err
 	}
-	erows, _ := DB.Query("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections WHERE group_id = ? ORDER BY created_at ASC", g.ID)
+	erows, _ := DB.Query("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections WHERE group_id = $1 ORDER BY created_at ASC", g.ID)
 	if erows != nil {
 		for erows.Next() {
 			var e models.Election
@@ -341,8 +341,8 @@ func GetGroup(id int) (models.ElectionGroup, error) {
 			if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 			if start.Valid { e.StartTime = start.Time.Local() }
 			if end.Valid { e.EndTime = end.Time.Local() }
-			DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = ?", e.ID).Scan(&e.CandidateCount)
-			DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = ?", e.ID).Scan(&e.TotalVotes)
+			DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", e.ID).Scan(&e.CandidateCount)
+			DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", e.ID).Scan(&e.TotalVotes)
 			if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 				e.Status = "Ended"
 			} else if !e.StartTime.IsZero() && time.Now().Before(e.StartTime) {
@@ -360,12 +360,12 @@ func GetGroup(id int) (models.ElectionGroup, error) {
 }
 
 func CreateGroup(name, description string) (int, error) {
-	res, err := DB.Exec("INSERT INTO election_groups (name, description) VALUES (?, ?)", name, description)
+	var id int
+	err := DB.QueryRow("INSERT INTO election_groups (name, description) VALUES ($1, $2) RETURNING id", name, description).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
-	id, _ := res.LastInsertId()
-	return int(id), nil
+	return id, nil
 }
 
 func DeleteGroup(id int) error {
@@ -375,10 +375,10 @@ func DeleteGroup(id int) error {
 	}
 	defer tx.Rollback()
 	// NULL-out group_id on elections (don't delete them)
-	if _, err = tx.Exec("UPDATE elections SET group_id = NULL WHERE group_id = ?", id); err != nil {
+	if _, err = tx.Exec("UPDATE elections SET group_id = NULL WHERE group_id = $1", id); err != nil {
 		return err
 	}
-	if _, err = tx.Exec("DELETE FROM election_groups WHERE id = ?", id); err != nil {
+	if _, err = tx.Exec("DELETE FROM election_groups WHERE id = $1", id); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -391,10 +391,10 @@ func ResetVotes(electionID int) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err = tx.Exec("DELETE FROM votes WHERE election_id = ?", electionID); err != nil {
+	if _, err = tx.Exec("DELETE FROM votes WHERE election_id = $1", electionID); err != nil {
 		return err
 	}
-	if _, err = tx.Exec("UPDATE candidates SET vote_count = 0 WHERE election_id = ?", electionID); err != nil {
+	if _, err = tx.Exec("UPDATE candidates SET vote_count = 0 WHERE election_id = $1", electionID); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -402,13 +402,13 @@ func ResetVotes(electionID int) error {
 
 // UpdateElection updates the basic details of an election
 func UpdateElection(id int, title, description string, durationMinutes int, groupID *int) error {
-	_, err := DB.Exec("UPDATE elections SET title = ?, description = ?, duration_minutes = ?, group_id = ? WHERE id = ?", title, description, durationMinutes, groupID, id)
+	_, err := DB.Exec("UPDATE elections SET title = $1, description = $2, duration_minutes = $3, group_id = $4 WHERE id = $5", title, description, durationMinutes, groupID, id)
 	return err
 }
 
 // ActivateAllElectionsInGroup sets all elections in a group to active and computes their start/end times
 func ActivateAllElectionsInGroup(groupID int) error {
-	rows, err := DB.Query("SELECT id, duration_minutes FROM elections WHERE group_id = ?", groupID)
+	rows, err := DB.Query("SELECT id, duration_minutes FROM elections WHERE group_id = $1", groupID)
 	if err != nil {
 		return err
 	}
@@ -436,7 +436,7 @@ func ActivateAllElectionsInGroup(groupID int) error {
 	now := time.Now().UTC()
 	for _, el := range elecs {
 		end := now.Add(time.Duration(el.dur) * time.Minute)
-		_, err = tx.Exec("UPDATE elections SET is_active = 1, start_time = ?, end_time = ? WHERE id = ?", now, end, el.id)
+		_, err = tx.Exec("UPDATE elections SET is_active = TRUE, start_time = $1, end_time = $2 WHERE id = $3", now, end, el.id)
 		if err != nil {
 			return err
 		}
@@ -446,6 +446,6 @@ func ActivateAllElectionsInGroup(groupID int) error {
 
 // DeactivateAllElectionsInGroup deactivates all elections in a group and sets their end_time to now (ended)
 func DeactivateAllElectionsInGroup(groupID int) error {
-	_, err := DB.Exec("UPDATE elections SET is_active = 0, end_time = ? WHERE group_id = ?", time.Now().UTC(), groupID)
+	_, err := DB.Exec("UPDATE elections SET is_active = FALSE, end_time = $1 WHERE group_id = $2", time.Now().UTC(), groupID)
 	return err
 }
