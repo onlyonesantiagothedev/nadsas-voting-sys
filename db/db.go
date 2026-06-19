@@ -14,8 +14,7 @@ var DB *sql.DB
 func InitDB(defaultConn string) {
 	connStr := os.Getenv("DATABASE_URL")
 	if connStr == "" {
-		// Use the Supabase IPv4 Pooler connection string (eu-west-1 region)
-		connStr = "postgresql://postgres.defguvuagvlfxhduryvd:3W0ufsQv9qtpuY5i@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"
+		log.Fatalf("CRITICAL ERROR: DATABASE_URL environment variable is not set. You must set DATABASE_URL to your PostgreSQL connection string to run the application.")
 	}
 
 	var err error

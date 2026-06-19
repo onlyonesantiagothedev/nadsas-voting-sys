@@ -7,9 +7,13 @@ import (
 
 	"nadsas_voting_sys/db"
 	"nadsas_voting_sys/handlers"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load environment variables from .env file if it exists
+	_ = godotenv.Load()
+
 	// Initialize Database
 	db.InitDB("")
 
