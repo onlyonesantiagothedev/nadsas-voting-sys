@@ -68,13 +68,22 @@ func VotingPageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	remainingSeconds := 0
+	if election.IsActive && !election.EndTime.IsZero() {
+		rem := time.Until(election.EndTime)
+		if rem > 0 {
+			remainingSeconds = int(rem.Seconds())
+		}
+	}
+
 	data := map[string]interface{}{
-		"Election":       election,
-		"CandidatesByPos": grouped,
-		"HasVoted":       hasVoted,
-		"HasEnded":       hasEnded,
-		"IsUpcoming":     isUpcoming,
-		csrf.TemplateTag: csrf.TemplateField(r),
+		"Election":         election,
+		"CandidatesByPos":  grouped,
+		"HasVoted":         hasVoted,
+		"HasEnded":         hasEnded,
+		"IsUpcoming":       isUpcoming,
+		"RemainingSeconds": remainingSeconds,
+		csrf.TemplateTag:   csrf.TemplateField(r),
 	}
 	renderTemplate(w, "voting.html", data)
 }

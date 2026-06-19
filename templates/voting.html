@@ -7,6 +7,20 @@
         <p class="mt-2 text-gray-600 dark:text-gray-400">{{.Election.Description}}</p>
     </div>
 
+    {{if and (not .HasEnded) (not .IsUpcoming) (not .HasVoted)}}
+    <div class="mb-6 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4 flex items-center justify-between" id="timer-container">
+        <div class="flex items-center gap-3 text-indigo-700 dark:text-indigo-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="font-semibold text-lg">Time Remaining:</span>
+        </div>
+        <div class="font-mono text-2xl font-bold text-indigo-800 dark:text-indigo-300 tracking-wider bg-white dark:bg-gray-800 px-4 py-2 rounded-md shadow-sm" id="countdown-display">
+            --:--:--
+        </div>
+    </div>
+    {{end}}
+
     {{if .HasEnded}}
     <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-6 text-center">
         <h2 class="text-xl font-bold text-amber-700 dark:text-amber-400 mb-2">Voting Has Ended</h2>
@@ -79,6 +93,67 @@
             </button>
         </div>
     </form>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            let remainingSeconds = {{.RemainingSeconds}};
+            const display = document.getElementById('countdown-display');
+            const submitBtn = document.getElementById('submit-btn');
+            const form = document.querySelector('form');
+            const timerContainer = document.getElementById('timer-container');
+            
+            if (!display) return;
+
+            function updateDisplay() {
+                if (remainingSeconds <= 0) {
+                    display.innerText = "00:00:00";
+                    display.classList.add('text-red-600', 'dark:text-red-400');
+                    display.classList.remove('text-indigo-800', 'dark:text-indigo-300');
+                    timerContainer.classList.replace('bg-indigo-50', 'bg-red-50');
+                    timerContainer.classList.replace('dark:bg-indigo-900/20', 'dark:bg-red-900/20');
+                    timerContainer.classList.replace('border-indigo-200', 'border-red-200');
+                    timerContainer.classList.replace('dark:border-indigo-800', 'dark:border-red-800');
+                    
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerText = "Voting Ended";
+                        submitBtn.classList.replace('bg-accent', 'bg-gray-500');
+                        submitBtn.classList.replace('hover:bg-orange-700', 'hover:bg-gray-600');
+                        submitBtn.classList.remove('hover:scale-[1.02]');
+                    }
+                    
+                    if(form && form.style.display !== 'none') {
+                        const msgDiv = document.createElement('div');
+                        msgDiv.className = 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-6 text-center my-8 fade-in';
+                        msgDiv.innerHTML = `<h2 class="text-xl font-bold text-amber-700 dark:text-amber-400 mb-2">Voting Has Ended</h2>
+                                            <p class="text-amber-600 dark:text-amber-300 font-medium">The time for casting votes in this election has passed.</p>
+                                            <div class="mt-6 flex justify-center gap-4">
+                                                <a href="/" class="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white px-6 py-2 rounded-full font-medium transition-colors">Return to Home</a>
+                                                <a href="/results/{{.Election.ID}}" class="bg-accent hover:bg-orange-700 text-white px-6 py-2 rounded-full font-medium transition-colors">View Results</a>
+                                            </div>`;
+                        form.parentNode.insertBefore(msgDiv, form);
+                        form.style.display = 'none';
+                    }
+                    return;
+                }
+                
+                const h = Math.floor(remainingSeconds / 3600);
+                const m = Math.floor((remainingSeconds % 3600) / 60);
+                const s = remainingSeconds % 60;
+                
+                display.innerText = 
+                    String(h).padStart(2, '0') + ':' + 
+                    String(m).padStart(2, '0') + ':' + 
+                    String(s).padStart(2, '0');
+                    
+                remainingSeconds--;
+                setTimeout(updateDisplay, 1000);
+            }
+            
+            updateDisplay();
+        });
+    </script>
     {{end}}
 </div>
 {{end}}
+

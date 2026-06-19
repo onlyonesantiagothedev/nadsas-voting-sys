@@ -11,14 +11,15 @@ type ElectionGroup struct {
 }
 
 type Election struct {
-	ID          int       `json:"id"`
-	GroupID     *int      `json:"group_id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	StartTime   time.Time `json:"start_time"`
-	EndTime     time.Time `json:"end_time"`
-	IsActive    bool      `json:"is_active"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID              int       `json:"id"`
+	GroupID         *int      `json:"group_id"`
+	Title           string    `json:"title"`
+	Description     string    `json:"description"`
+	StartTime       time.Time `json:"start_time"`
+	EndTime         time.Time `json:"end_time"`
+	DurationMinutes int       `json:"duration_minutes"`
+	IsActive        bool      `json:"is_active"`
+	CreatedAt       time.Time `json:"created_at"`
 
 	// Computed fields for UI
 	Status         string `json:"status"`

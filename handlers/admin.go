@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"nadsas_voting_sys/db"
+	"nadsas_voting_sys/models"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/csrf"
 	"golang.org/x/crypto/bcrypt"
@@ -105,24 +106,18 @@ func AdminNewElectionPostHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	title := r.FormValue("title")
 	desc := r.FormValue("description")
-	startStr := r.FormValue("start_time")
-	endStr := r.FormValue("end_time")
+	durationHoursStr := r.FormValue("duration_hours")
+	durationMinutesStr := r.FormValue("duration_minutes")
 
-	var start, end *time.Time
-	layout := "2006-01-02T15:04"
-	if startStr != "" {
-		t, err := time.ParseInLocation(layout, startStr, time.Local)
-		if err == nil {
-			tUTC := t.UTC()
-			start = &tUTC
-		}
+	var durationMinutes int
+	if h, err := strconv.Atoi(durationHoursStr); err == nil && h >= 0 {
+		durationMinutes += h * 60
 	}
-	if endStr != "" {
-		t, err := time.ParseInLocation(layout, endStr, time.Local)
-		if err == nil {
-			tUTC := t.UTC()
-			end = &tUTC
-		}
+	if m, err := strconv.Atoi(durationMinutesStr); err == nil && m >= 0 {
+		durationMinutes += m
+	}
+	if durationMinutes <= 0 {
+		durationMinutes = 60 // Fallback to 1 hour
 	}
 
 	groupIDStr := r.FormValue("group_id")
@@ -133,7 +128,7 @@ func AdminNewElectionPostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	id, err := db.CreateElection(title, desc, groupID, start, end)
+	id, err := db.CreateElection(title, desc, groupID, durationMinutes)
 	if err != nil {
 		http.Error(w, "Failed to create election", http.StatusInternalServerError)
 		return
@@ -147,11 +142,25 @@ func AdminManageElectionHandler(w http.ResponseWriter, r *http.Request) {
 
 	election, _ := db.GetElection(id)
 	candidates, _ := db.GetCandidatesForElection(id)
+	groups, _ := db.GetAllGroups()
+
+	// Parse duration back into hours and minutes
+	hours := election.DurationMinutes / 60
+	minutes := election.DurationMinutes % 60
+
+	var groupIDVal int
+	if election.GroupID != nil {
+		groupIDVal = *election.GroupID
+	}
 
 	data := map[string]interface{}{
-		"Election":       election,
-		"Candidates":     candidates,
-		csrf.TemplateTag: csrf.TemplateField(r),
+		"Election":        election,
+		"Candidates":      candidates,
+		"Groups":          groups,
+		"GroupIDVal":      groupIDVal,
+		"DurationHours":   hours,
+		"DurationMinutes": minutes,
+		csrf.TemplateTag:  csrf.TemplateField(r),
 	}
 	renderTemplate(w, "admin_election.html", data)
 }
@@ -348,4 +357,104 @@ func AdminPrintElectionHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	renderTemplate(w, "admin_print.html", data)
+}
+
+func AdminEditElectionPostHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, _ := strconv.Atoi(idStr)
+
+	r.ParseForm()
+	title := r.FormValue("title")
+	desc := r.FormValue("description")
+	durationHoursStr := r.FormValue("duration_hours")
+	durationMinutesStr := r.FormValue("duration_minutes")
+
+	var durationMinutes int
+	if h, err := strconv.Atoi(durationHoursStr); err == nil && h >= 0 {
+		durationMinutes += h * 60
+	}
+	if m, err := strconv.Atoi(durationMinutesStr); err == nil && m >= 0 {
+		durationMinutes += m
+	}
+	if durationMinutes <= 0 {
+		durationMinutes = 60
+	}
+
+	groupIDStr := r.FormValue("group_id")
+	var groupID *int
+	if groupIDStr != "" {
+		if gid, err := strconv.Atoi(groupIDStr); err == nil {
+			groupID = &gid
+		}
+	}
+
+	err := db.UpdateElection(id, title, desc, durationMinutes, groupID)
+	if err != nil {
+		http.Error(w, "Failed to update election: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/election/%d", id), http.StatusFound)
+}
+
+func AdminGroupActivateAllHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, _ := strconv.Atoi(idStr)
+
+	err := db.ActivateAllElectionsInGroup(id)
+	if err != nil {
+		http.Error(w, "Failed to activate elections: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/group/%d", id), http.StatusFound)
+}
+
+func AdminGroupDeactivateAllHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, _ := strconv.Atoi(idStr)
+
+	err := db.DeactivateAllElectionsInGroup(id)
+	if err != nil {
+		http.Error(w, "Failed to deactivate elections: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/admin/group/%d", id), http.StatusFound)
+}
+
+func AdminPrintGroupHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, _ := strconv.Atoi(idStr)
+
+	group, err := db.GetGroup(id)
+	if err != nil {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+
+	type ElectionWithCandidates struct {
+		models.Election
+		Candidates []models.Candidate
+	}
+	var dataElections []ElectionWithCandidates
+
+	for _, e := range group.Elections {
+		candidates, _ := db.GetCandidatesForElection(e.ID)
+		for i, c := range candidates {
+			if e.TotalVotes > 0 {
+				candidates[i].VotePercentage = float64(c.VoteCount) / float64(e.TotalVotes) * 100
+			} else {
+				candidates[i].VotePercentage = 0
+			}
+		}
+		dataElections = append(dataElections, ElectionWithCandidates{
+			Election:   e,
+			Candidates: candidates,
+		})
+	}
+
+	data := map[string]interface{}{
+		"Group":     group,
+		"Elections": dataElections,
+	}
+
+	renderTemplate(w, "admin_group_print.html", data)
 }

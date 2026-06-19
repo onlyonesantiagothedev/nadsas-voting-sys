@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS elections (
     description TEXT,
     start_time DATETIME,
     end_time DATETIME,
+    duration_minutes INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (group_id) REFERENCES election_groups(id) ON DELETE SET NULL

@@ -22,7 +22,7 @@ func renderTemplate(w http.ResponseWriter, name string, data map[string]interfac
 		http.Error(w, "Template not found", http.StatusInternalServerError)
 		return
 	}
-	if name == "results_fragment.html" || name == "admin_print.html" {
+	if name == "results_fragment.html" || name == "admin_print.html" || name == "admin_group_print.html" {
 		err := t.ExecuteTemplate(w, name, data)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -55,6 +55,7 @@ func SetupRouter() *chi.Mux {
 	tmpls["admin_new_group.html"] = template.Must(template.New("admin_new_group.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/admin_new_group.html"))
 	tmpls["admin_group.html"] = template.Must(template.New("admin_group.html").Funcs(funcMap).ParseFiles("templates/base.html", "templates/admin_group.html"))
 	tmpls["admin_print.html"] = template.Must(template.New("admin_print.html").Funcs(funcMap).ParseFiles("templates/admin_print.html"))
+	tmpls["admin_group_print.html"] = template.Must(template.New("admin_group_print.html").Funcs(funcMap).ParseFiles("templates/admin_group_print.html"))
 
 	// Setup session store
 	secret := os.Getenv("SESSION_SECRET")
@@ -110,11 +111,15 @@ func SetupRouter() *chi.Mux {
 			r.Post("/group/new", AdminNewGroupPostHandler)
 			r.Get("/group/{id}", AdminManageGroupHandler)
 			r.Post("/group/{id}/delete", AdminDeleteGroupHandler)
+			r.Post("/group/{id}/activate-all", AdminGroupActivateAllHandler)
+			r.Post("/group/{id}/deactivate-all", AdminGroupDeactivateAllHandler)
+			r.Get("/group/{id}/print", AdminPrintGroupHandler)
 
 			// Election routes
 			r.Get("/election/new", AdminNewElectionHandler)
 			r.Post("/election/new", AdminNewElectionPostHandler)
 			r.Get("/election/{id}", AdminManageElectionHandler)
+			r.Post("/election/{id}/edit", AdminEditElectionPostHandler)
 			r.Get("/election/{id}/print", AdminPrintElectionHandler)
 			r.Post("/election/{id}/toggle", AdminToggleElectionHandler)
 			r.Post("/election/{id}/delete", AdminDeleteElectionHandler)

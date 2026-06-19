@@ -27,9 +27,47 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Add Candidate Form -->
-        <div class="lg:col-span-1">
-            <div class="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 p-6 sticky top-6">
+        <!-- Sidebar Forms -->
+        <div class="lg:col-span-1 space-y-6">
+            <!-- Edit Details Form -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Edit Details</h2>
+                <form action="/admin/election/{{.Election.ID}}/edit" method="POST" class="space-y-4">
+                    {{.csrfField}}
+                    <div>
+                        <label for="edit_title" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Election / Role Title</label>
+                        <input type="text" name="title" id="edit_title" value="{{.Election.Title}}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border">
+                    </div>
+                    <div>
+                        <label for="edit_group_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Election Group</label>
+                        <select name="group_id" id="edit_group_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border">
+                            <option value="">-- No Group (Standalone) --</option>
+                            {{$currentGid := .GroupIDVal}}
+                            {{range .Groups}}
+                            <option value="{{.ID}}" {{if eq .ID $currentGid}}selected{{end}}>{{.Name}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label for="edit_duration_hours" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Duration (Hours)</label>
+                            <input type="number" name="duration_hours" id="edit_duration_hours" min="0" value="{{.DurationHours}}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border">
+                        </div>
+                        <div>
+                            <label for="edit_duration_minutes" class="block text-xs font-medium text-gray-700 dark:text-gray-300">Duration (Mins)</label>
+                            <input type="number" name="duration_minutes" id="edit_duration_minutes" min="0" max="59" value="{{.DurationMinutes}}" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="edit_description" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+                        <textarea name="description" id="edit_description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 border">{{.Election.Description}}</textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-primary text-white px-4 py-2 rounded-md hover:bg-blue-900 transition-colors font-medium">Save Changes</button>
+                </form>
+            </div>
+
+            <!-- Add Candidate Form -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <h2 class="text-lg font-medium text-gray-900 dark:text-white mb-4">Add Candidate</h2>
                 <form action="/admin/election/{{.Election.ID}}/candidates" method="POST" enctype="multipart/form-data" class="space-y-4">
                     {{.csrfField}}

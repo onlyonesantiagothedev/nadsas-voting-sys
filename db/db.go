@@ -28,6 +28,9 @@ func InitDB(dataSourceName string) {
 		log.Fatalf("Failed to enable foreign keys: %v", err)
 	}
 
+	// Migration: Add duration_minutes to elections if not exists
+	_, _ = DB.Exec("ALTER TABLE elections ADD COLUMN duration_minutes INTEGER DEFAULT 0")
+
 	createTables()
 	seedAdmins()
 }
