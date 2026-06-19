@@ -1,32 +1,34 @@
-# Create .gitignore
-cat > .gitignore << 'EOF'
-# Binaries
+# Binaries and executables
 *.exe
 *.dll
 *.so
 *.dylib
 nadsas-voting
+nadsas_voting_sys
+test.exe
+testapp.exe
 app
 
-# Test binaries
+# Test binaries and coverage reports
 *.test
-
-# Output of go coverage
 *.out
 
 # Dependency directories
 vendor/
+node_modules/
 
-# SQLite database (don't push live data)
+# SQLite databases (prevents pushing local development data to Git)
 *.db
 *.db-journal
+*.sqlite
+data.sqlite
 data/
 
 # Environment variables
 .env
 *.env
 
-# IDE
+# IDE configurations
 .idea/
 .vscode/
 *.swp
@@ -36,7 +38,6 @@ data/
 .DS_Store
 Thumbs.db
 
-# Temporary files
+# Temporary directories
 tmp/
 temp/
-EOF

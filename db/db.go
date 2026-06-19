@@ -14,8 +14,8 @@ var DB *sql.DB
 func InitDB(defaultConn string) {
 	connStr := os.Getenv("DATABASE_URL")
 	if connStr == "" {
-		// Use the Supabase connection string provided
-		connStr = "postgresql://postgres:thebigcompan12@db.defguvuagvlfxhduryvd.supabase.co:5432/postgres"
+		// Use the Supabase IPv4 Pooler connection string (eu-west-1 region)
+		connStr = "postgresql://postgres.defguvuagvlfxhduryvd:3W0ufsQv9qtpuY5i@aws-0-eu-west-1.pooler.supabase.com:6543/postgres"
 	}
 
 	var err error

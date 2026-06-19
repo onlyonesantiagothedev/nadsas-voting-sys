@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Initialize Database
-	db.InitDB("./data.sqlite")
+	db.InitDB("")
 
 	// Setup Router
 	r := handlers.SetupRouter()
