@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strconv"
 	"time"
-
 	"nadsas_voting_sys/db"
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/csrf"
