@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -183,7 +184,9 @@ func AdminAddCandidateHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, _ := strconv.Atoi(idStr)
 	
-	r.ParseMultipartForm(5 << 20) // 5MB max
+	if err := r.ParseMultipartForm(5 << 20); err != nil { // 5MB max
+		log.Printf("Error parsing multipart form: %v", err)
+	}
 
 	name := r.FormValue("name")
 	position := r.FormValue("position")
@@ -193,16 +196,30 @@ func AdminAddCandidateHandler(w http.ResponseWriter, r *http.Request) {
 	file, handler, err := r.FormFile("photo")
 	if err == nil {
 		defer file.Close()
+		
+		// Ensure the directory exists
+		dir := filepath.Join("static", "img", "candidates")
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			log.Printf("Error creating directory %s: %v", dir, err)
+		}
+
 		ext := filepath.Ext(handler.Filename)
 		filename := fmt.Sprintf("candidate_%d_%d%s", id, time.Now().UnixNano(), ext)
-		savePath := filepath.Join("static", "img", "candidates", filename)
+		savePath := filepath.Join(dir, filename)
 		
 		dst, err := os.Create(savePath)
-		if err == nil {
+		if err != nil {
+			log.Printf("Error creating file %s: %v", savePath, err)
+		} else {
 			defer dst.Close()
-			io.Copy(dst, file)
-			photoURL = "/static/img/candidates/" + filename
+			if _, err := io.Copy(dst, file); err != nil {
+				log.Printf("Error copying candidate photo to %s: %v", savePath, err)
+			} else {
+				photoURL = "/static/img/candidates/" + filename
+			}
 		}
+	} else if err != http.ErrMissingFile {
+		log.Printf("Error getting photo file: %v", err)
 	}
 
 	db.AddCandidate(id, name, position, manifesto, photoURL)
