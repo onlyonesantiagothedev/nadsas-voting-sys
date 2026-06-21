@@ -142,14 +142,6 @@ func RecordVotes(electionID int, candidateIDs []int, voterIdentifier, pepper str
 		return errors.New("you have already voted in this election")
 	}
 
-	// Global 24-hour cooldown check for this voter across all elections
-	var lastVoted sql.NullTime
-	err = tx.QueryRow("SELECT MAX(voted_at) FROM votes WHERE voter_hash = $1", voterHash).Scan(&lastVoted)
-	if err == nil && lastVoted.Valid {
-		if time.Since(lastVoted.Time) < 24*time.Hour {
-			return errors.New("this Voter ID has already been used in the last 24 hours and is currently locked")
-		}
-	}
 
 	for _, cid := range candidateIDs {
 		// Get position of candidate
