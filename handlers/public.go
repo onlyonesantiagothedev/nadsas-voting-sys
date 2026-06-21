@@ -46,9 +46,7 @@ func VotingPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	grouped := make(map[string][]models.Candidate)
-	for _, c := range candidates {
-		grouped[c.Position] = append(grouped[c.Position], c)
-	}
+	grouped["Candidates"] = candidates
 
 	hasVoted := false
 	if _, err := r.Cookie(fmt.Sprintf("voted_election_%d", id)); err == nil {

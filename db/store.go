@@ -18,7 +18,12 @@ func HashVoter(identifier, pepper string) string {
 }
 
 func GetActiveElections() ([]models.Election, error) {
-	rows, err := DB.Query("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections ORDER BY created_at DESC")
+	rows, err := DB.Query(`
+		SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active,
+		(SELECT COUNT(*) FROM candidates WHERE election_id = elections.id),
+		(SELECT COUNT(*) FROM votes WHERE election_id = elections.id)
+		FROM elections ORDER BY created_at DESC
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -29,14 +34,12 @@ func GetActiveElections() ([]models.Election, error) {
 		var e models.Election
 		var start, end sql.NullTime
 		var gid sql.NullInt64
-		if err := rows.Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive); err != nil {
+		if err := rows.Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive, &e.CandidateCount, &e.TotalVotes); err != nil {
 			return nil, err
 		}
 		if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 		if start.Valid { e.StartTime = start.Time.Local() }
 		if end.Valid { e.EndTime = end.Time.Local() }
-		DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", e.ID).Scan(&e.CandidateCount)
-		DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", e.ID).Scan(&e.TotalVotes)
 		
 		if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 			e.Status = "Ended"
@@ -59,16 +62,18 @@ func GetElection(id int) (models.Election, error) {
 	var e models.Election
 	var start, end sql.NullTime
 	var gid sql.NullInt64
-	err := DB.QueryRow("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections WHERE id = $1", id).
-		Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive)
+	err := DB.QueryRow(`
+		SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active,
+		(SELECT COUNT(*) FROM candidates WHERE election_id = elections.id),
+		(SELECT COUNT(*) FROM votes WHERE election_id = elections.id)
+		FROM elections WHERE id = $1
+	`, id).Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive, &e.CandidateCount, &e.TotalVotes)
 	if err != nil {
 		return e, err
 	}
 	if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 	if start.Valid { e.StartTime = start.Time.Local() }
 	if end.Valid { e.EndTime = end.Time.Local() }
-	DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", id).Scan(&e.CandidateCount)
-	DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", id).Scan(&e.TotalVotes)
 
 	if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 		e.Status = "Ended"
@@ -168,7 +173,12 @@ func RecordVotes(electionID int, candidateIDs []int, voterIdentifier, pepper str
 }
 
 func GetAllElectionsAdmin() ([]models.Election, error) {
-	rows, err := DB.Query("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections ORDER BY created_at DESC")
+	rows, err := DB.Query(`
+		SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active,
+		(SELECT COUNT(*) FROM candidates WHERE election_id = elections.id),
+		(SELECT COUNT(*) FROM votes WHERE election_id = elections.id)
+		FROM elections ORDER BY created_at DESC
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -179,14 +189,12 @@ func GetAllElectionsAdmin() ([]models.Election, error) {
 		var e models.Election
 		var start, end sql.NullTime
 		var gid sql.NullInt64
-		if err := rows.Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive); err != nil {
+		if err := rows.Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive, &e.CandidateCount, &e.TotalVotes); err != nil {
 			return nil, err
 		}
 		if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 		if start.Valid { e.StartTime = start.Time.Local() }
 		if end.Valid { e.EndTime = end.Time.Local() }
-		DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", e.ID).Scan(&e.CandidateCount)
-		DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", e.ID).Scan(&e.TotalVotes)
 		if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 			e.Status = "Ended"
 		} else if !e.StartTime.IsZero() && time.Now().Before(e.StartTime) {
@@ -286,18 +294,21 @@ func GetAllGroups() ([]models.ElectionGroup, error) {
 			return nil, err
 		}
 		// Load elections inside group
-		erows, _ := DB.Query("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections WHERE group_id = $1 ORDER BY created_at ASC", g.ID)
+		erows, _ := DB.Query(`
+			SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active,
+			(SELECT COUNT(*) FROM candidates WHERE election_id = elections.id),
+			(SELECT COUNT(*) FROM votes WHERE election_id = elections.id)
+			FROM elections WHERE group_id = $1 ORDER BY created_at ASC
+		`, g.ID)
 		if erows != nil {
 			for erows.Next() {
 				var e models.Election
 				var start, end sql.NullTime
 				var gid sql.NullInt64
-				erows.Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive)
+				erows.Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive, &e.CandidateCount, &e.TotalVotes)
 				if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 				if start.Valid { e.StartTime = start.Time.Local() }
 				if end.Valid { e.EndTime = end.Time.Local() }
-				DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", e.ID).Scan(&e.CandidateCount)
-				DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", e.ID).Scan(&e.TotalVotes)
 				if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 					e.Status = "Ended"
 				} else if !e.StartTime.IsZero() && time.Now().Before(e.StartTime) {
@@ -323,18 +334,21 @@ func GetGroup(id int) (models.ElectionGroup, error) {
 	if err != nil {
 		return g, err
 	}
-	erows, _ := DB.Query("SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active FROM elections WHERE group_id = $1 ORDER BY created_at ASC", g.ID)
+	erows, _ := DB.Query(`
+		SELECT id, group_id, title, description, start_time, end_time, duration_minutes, is_active,
+		(SELECT COUNT(*) FROM candidates WHERE election_id = elections.id),
+		(SELECT COUNT(*) FROM votes WHERE election_id = elections.id)
+		FROM elections WHERE group_id = $1 ORDER BY created_at ASC
+	`, g.ID)
 	if erows != nil {
 		for erows.Next() {
 			var e models.Election
 			var start, end sql.NullTime
 			var gid sql.NullInt64
-			erows.Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive)
+			erows.Scan(&e.ID, &gid, &e.Title, &e.Description, &start, &end, &e.DurationMinutes, &e.IsActive, &e.CandidateCount, &e.TotalVotes)
 			if gid.Valid { v := int(gid.Int64); e.GroupID = &v }
 			if start.Valid { e.StartTime = start.Time.Local() }
 			if end.Valid { e.EndTime = end.Time.Local() }
-			DB.QueryRow("SELECT COUNT(*) FROM candidates WHERE election_id = $1", e.ID).Scan(&e.CandidateCount)
-			DB.QueryRow("SELECT COUNT(*) FROM votes WHERE election_id = $1", e.ID).Scan(&e.TotalVotes)
 			if !e.EndTime.IsZero() && time.Now().After(e.EndTime) {
 				e.Status = "Ended"
 			} else if !e.StartTime.IsZero() && time.Now().Before(e.StartTime) {
