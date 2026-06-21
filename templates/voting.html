@@ -66,7 +66,7 @@
                     <input type="radio" name="role_{{$position}}" value="{{.ID}}" class="sr-only" required>
                     <span class="flex flex-1 items-center gap-4">
                         {{if .PhotoURL}}
-                        <img src="{{.PhotoURL}}" alt="{{.Name}}" class="h-16 w-16 rounded-full object-cover ring-2 ring-transparent group-has-[:checked]:ring-primary transition-all">
+                        <img src="{{safeURL .PhotoURL}}" alt="{{.Name}}" class="h-16 w-16 rounded-full object-cover ring-2 ring-transparent group-has-[:checked]:ring-primary transition-all">
                         {{else}}
                         <div class="h-16 w-16 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xl font-bold text-gray-500 ring-2 ring-transparent group-has-[:checked]:ring-primary transition-all">
                             {{printf "%.1s" .Name}}

@@ -41,6 +41,9 @@ func SetupRouter() *chi.Mux {
 		"add1": func(x int) int {
 			return x + 1
 		},
+		"safeURL": func(s string) template.URL {
+			return template.URL(s)
+		},
 	}
 
 	// Parse templates separately so they don't overwrite the "content" block

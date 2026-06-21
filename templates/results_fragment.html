@@ -28,7 +28,7 @@
             <div class="flex justify-between items-end mb-2">
                 <div class="flex items-center gap-3">
                     {{if .PhotoURL}}
-                    <img src="{{.PhotoURL}}" alt="{{.Name}}" class="h-8 w-8 rounded-full object-cover">
+                    <img src="{{safeURL .PhotoURL}}" alt="{{.Name}}" class="h-8 w-8 rounded-full object-cover">
                     {{else}}
                     <div class="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500">
                         {{printf "%.1s" .Name}}

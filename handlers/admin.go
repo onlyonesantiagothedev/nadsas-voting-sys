@@ -1,13 +1,17 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
+	"image"
+	_ "image/gif"
+	"image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -193,38 +197,80 @@ func AdminAddCandidateHandler(w http.ResponseWriter, r *http.Request) {
 	manifesto := r.FormValue("manifesto")
 	
 	var photoURL string
-	file, handler, err := r.FormFile("photo")
+	file, header, err := r.FormFile("photo")
 	if err == nil {
 		defer file.Close()
 		
-		// Ensure the directory exists
-		dir := filepath.Join("static", "img", "candidates")
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			log.Printf("Error creating directory %s: %v", dir, err)
-		}
-
-		ext := filepath.Ext(handler.Filename)
-		filename := fmt.Sprintf("candidate_%d_%d%s", id, time.Now().UnixNano(), ext)
-		savePath := filepath.Join(dir, filename)
-		
-		dst, err := os.Create(savePath)
-		if err != nil {
-			log.Printf("Error creating file %s: %v", savePath, err)
-		} else {
-			defer dst.Close()
-			if _, err := io.Copy(dst, file); err != nil {
-				log.Printf("Error copying candidate photo to %s: %v", savePath, err)
-			} else {
-				photoURL = "/static/img/candidates/" + filename
+		fileBytes, err := io.ReadAll(file)
+		if err == nil {
+			mimeType := header.Header.Get("Content-Type")
+			if mimeType == "" {
+				mimeType = http.DetectContentType(fileBytes)
 			}
+			
+			// Try to decode image to see if we can resize it to save DB space
+			// Support JPEG, PNG, GIF
+			img, _, decodeErr := image.Decode(bytes.NewReader(fileBytes))
+			if decodeErr == nil {
+				// Resizing succeeded, scale down to 300x300
+				resizedImg := resizeImage(img, 300, 300)
+				var buf bytes.Buffer
+				if encodeErr := jpeg.Encode(&buf, resizedImg, &jpeg.Options{Quality: 75}); encodeErr == nil {
+					encoded := base64.StdEncoding.EncodeToString(buf.Bytes())
+					photoURL = "data:image/jpeg;base64," + encoded
+				} else {
+					log.Printf("Error encoding resized JPEG, falling back to raw: %v", encodeErr)
+					encoded := base64.StdEncoding.EncodeToString(fileBytes)
+					photoURL = fmt.Sprintf("data:%s;base64,%s", mimeType, encoded)
+				}
+			} else {
+				// Image decoding failed (e.g. unsupported HEIC, WebP), fallback to storing raw base64
+				log.Printf("Could not decode image format (%v), saving raw base64", decodeErr)
+				encoded := base64.StdEncoding.EncodeToString(fileBytes)
+				photoURL = fmt.Sprintf("data:%s;base64,%s", mimeType, encoded)
+			}
+		} else {
+			log.Printf("Error reading uploaded image file: %v", err)
 		}
 	} else if err != http.ErrMissingFile {
 		log.Printf("Error getting photo file: %v", err)
 	}
 
-	db.AddCandidate(id, name, position, manifesto, photoURL)
+	if err := db.AddCandidate(id, name, position, manifesto, photoURL); err != nil {
+		log.Printf("DATABASE ERROR inserting candidate: %v", err)
+		http.Error(w, "Failed to save candidate to database: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	http.Redirect(w, r, fmt.Sprintf("/admin/election/%d", id), http.StatusFound)
 }
+
+func resizeImage(src image.Image, maxW, maxH int) image.Image {
+	bounds := src.Bounds()
+	w, h := bounds.Dx(), bounds.Dy()
+	if w <= maxW && h <= maxH {
+		return src
+	}
+	ratio := float64(w) / float64(h)
+	var newW, newH int
+	if ratio > 1 {
+		newW = maxW
+		newH = int(float64(maxW) / ratio)
+	} else {
+		newH = maxH
+		newW = int(float64(maxH) * ratio)
+	}
+	newImg := image.NewRGBA(image.Rect(0, 0, newW, newH))
+	for y := 0; y < newH; y++ {
+		for x := 0; x < newW; x++ {
+			srcX := int(float64(x) * float64(w) / float64(newW))
+			srcY := int(float64(y) * float64(h) / float64(newH))
+			newImg.Set(x, y, src.At(bounds.Min.X+srcX, bounds.Min.Y+srcY))
+		}
+	}
+	return newImg
+}
+
+
 
 func AdminDeleteCandidateHandler(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")

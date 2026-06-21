@@ -193,7 +193,7 @@
                     <!-- Profile Avatar -->
                     <div class="shrink-0">
                         {{if $c.PhotoURL}}
-                        <img src="{{$c.PhotoURL}}" alt="{{$c.Name}}" class="h-12 w-12 rounded-full object-cover border-2 {{if eq $index 0}}border-amber-300{{else}}border-slate-200{{end}} shadow-sm">
+                        <img src="{{safeURL $c.PhotoURL}}" alt="{{$c.Name}}" class="h-12 w-12 rounded-full object-cover border-2 {{if eq $index 0}}border-amber-300{{else}}border-slate-200{{end}} shadow-sm">
                         {{else}}
                         <div class="h-12 w-12 rounded-full font-display font-bold flex items-center justify-center uppercase border {{if eq $index 0}}bg-amber-50 text-amber-700 border-amber-300{{else}}bg-slate-100 text-slate-600 border-slate-300{{end}}">
                             {{printf "%.2s" $c.Name}}
